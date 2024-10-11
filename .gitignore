@@ -160,12 +160,3 @@ cython_debug/
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
-
-# Kaggle data - Child Mind Institute — Problematic Internet Use
-child-mind-institute-problematic-internet-use.zip
-data_dictionary.csv
-sample_submission.csv
-series_test.parquet
-series_train.parquet
-test.csv
-train.csv
