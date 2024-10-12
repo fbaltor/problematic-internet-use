@@ -5,3 +5,4 @@ pandas
 kagglehub
 scipy
 scikit-learn
+polars
