@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 data/
+experiments/
 credentials.json
 # C extensions
 *.so
