@@ -5,11 +5,13 @@ import shutil
 from typing import Dict
 
 import kagglehub
+import lightgbm as lgb
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import seaborn as sns
 from kagglehub.config import set_kaggle_credentials
-from sklearn.metrics import accuracy_score, roc_auc_score
+from sklearn.metrics import accuracy_score, confusion_matrix, roc_auc_score
 
 from constants import DATASET_PATH, ID_COL, LABEL_COL
 
@@ -32,8 +34,10 @@ def download_data() -> None:
 def get_cols_from_df(df: pd.DataFrame, features) -> pd.DataFrame:
     return df[[ID_COL] + features + [LABEL_COL]].copy(deep=True)
 
+
 def get_experiment_folder(experiment_name: str) -> str:
     return f"experiments/{experiment_name.replace(' ', '_')}"
+
 
 def load_user_events_df(user_id: str, is_train: bool = True) -> pd.DataFrame:
     mode = "train" if is_train else "test"
@@ -82,3 +86,78 @@ def compute_metrics(y_true, y_pred):
         "auc_score": roc_auc_score(y_true, y_pred, multi_class="ovr"),
         "accuracy": accuracy_score(y_true, pred_labels),
     }
+
+
+def save_results(
+    model,
+    X_train: pd.DataFrame,
+    X_test: pd.DataFrame,
+    y_train: pd.DataFrame,
+    y_test: pd.DataFrame,
+    experiment_name: str,
+    experiment_metadata: Dict,
+):
+    # Save Training Metrics
+    plt.figure()
+    lgb.plot_metric(model)
+    save_image(experiment_name, "training_metrics")
+    # Save Model
+    save_model(model, experiment_name)
+    # Save Metadata
+    save_metadata(
+        experiment_name=experiment_name,
+        filename="metadata.json",
+        metadata=experiment_metadata,
+    )
+    # Save Predictions
+    train_predictions = model.predict_proba(X_train)
+    save_text(experiment_name, "train_predictions", str(train_predictions.tolist()))
+
+    test_predictions = model.predict_proba(X_test)
+    save_text(experiment_name, "train_predictions", str(test_predictions.tolist()))
+    # Save Feature Importance Gain
+    plt.figure()
+    lgb.plot_importance(
+        model, importance_type="gain", max_num_features=10, figsize=(10, 5)
+    )
+    save_image(experiment_name, "gain_feature_importance")
+    # Save Feature Importance Split
+    plt.figure()
+    lgb.plot_importance(
+        model,
+        importance_type="split",
+        figsize=(7, 6),
+        title="LightGBM Feature Importance (Split)",
+    )
+    save_image(experiment_name, "split_feature_importance")
+    # Save Evaluation Metrics
+    plt.figure()
+    train_metrics = compute_metrics(y_train, train_predictions)
+    test_metrics = compute_metrics(y_test, test_predictions)
+    metrics = {
+        "train_metrics": train_metrics,
+        "test_metrics": test_metrics,
+    }
+    save_metadata(
+        experiment_name=experiment_name, filename="eval_metrics", metadata=metrics
+    )
+    # Save Confusion Matrix
+    plt.figure()
+    test_predictions_labels = [np.argmax(x) for x in test_predictions]
+    matrix = confusion_matrix(y_test, test_predictions_labels)
+    sns.heatmap(matrix, annot=True, fmt="d", cmap="Blues")
+    plt.xlabel("Predicted Labels")
+    plt.ylabel("True Labels")
+    save_image(experiment_name, "confusion_matrix")
+    # Save Train Predictions Histograms
+    plt.figure()
+    plt.title("Train Predictions Histogram")
+    sns.histplot(train_predictions, bins=100)
+    save_image(experiment_name, "train_predictions_histogram")
+    # Save Test Predictions Histograms
+    plt.figure()
+    plt.title("Test Predictions Histogram")
+    sns.histplot(test_predictions, bins=100)
+    save_image(experiment_name, "test_predictions_histogram")
+    print(train_metrics)
+    print(test_metrics)
