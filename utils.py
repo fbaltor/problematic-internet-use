@@ -32,6 +32,8 @@ def download_data() -> None:
 def get_cols_from_df(df: pd.DataFrame, features) -> pd.DataFrame:
     return df[[ID_COL] + features + [LABEL_COL]].copy(deep=True)
 
+def get_experiment_folder(experiment_name: str) -> str:
+    return f"experiments/{experiment_name.replace(' ', '_')}"
 
 def load_user_events_df(user_id: str, is_train: bool = True) -> pd.DataFrame:
     mode = "train" if is_train else "test"
@@ -48,26 +50,26 @@ def load_user_events_df(user_id: str, is_train: bool = True) -> pd.DataFrame:
 
 
 def save_image(experiment_name: str, filename: str) -> None:
-    experiment_name = experiment_name.replace(" ", "_")
+    experiment_folder = get_experiment_folder(experiment_name)
     os.makedirs(f"experiments/{experiment_name}", exist_ok=True)
     plt.savefig(f"experiments/{experiment_name}/{filename}.png")
 
 
 def save_text(experiment_name: str, filename: str, text: str) -> None:
-    experiment_name = experiment_name.replace(" ", "_")
+    experiment_folder = get_experiment_folder(experiment_name)
     with open(f"experiments/{experiment_name}/{filename}.txt", "w") as f:
         f.write(text)
 
 
 def save_model(model, experiment_name: str):
-    experiment_name = experiment_name.replace(" ", "_")
+    experiment_folder = get_experiment_folder(experiment_name)
     os.makedirs(f"experiments/{experiment_name}", exist_ok=True)
     with open(f"experiments/{experiment_name}/model.pkl", "wb") as f:
         pickle.dump(model, f)
 
 
 def save_metadata(experiment_name: str, filename: str, metadata: Dict):
-    experiment_name = experiment_name.replace(" ", "_")
+    experiment_folder = get_experiment_folder(experiment_name)
     with open(f"experiments/{experiment_name}/{filename}.json", "w") as f:
         json.dump(metadata, f, indent=4)
 
