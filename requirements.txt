@@ -6,3 +6,6 @@ kagglehub
 scipy
 scikit-learn
 polars
+jupyter
+nbdime
+pyarrow
