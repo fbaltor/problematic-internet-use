@@ -4,6 +4,8 @@ __pycache__/
 *$py.class
 data/
 experiments/
+mlflow_data/
+mlartifacts/
 credentials.json
 # C extensions
 *.so

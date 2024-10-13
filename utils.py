@@ -7,6 +7,7 @@ from typing import Dict
 import kagglehub
 import lightgbm as lgb
 import matplotlib.pyplot as plt
+import mlflow
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -88,7 +89,7 @@ def compute_metrics(y_true, y_pred):
     }
 
 
-def save_results(
+def save_results_locally(
     model,
     X_train: pd.DataFrame,
     X_test: pd.DataFrame,
@@ -106,7 +107,7 @@ def save_results(
     # Save Metadata
     save_metadata(
         experiment_name=experiment_name,
-        filename="metadata.json",
+        filename="metadata",
         metadata=experiment_metadata,
     )
     # Save Predictions
@@ -114,7 +115,7 @@ def save_results(
     save_text(experiment_name, "train_predictions", str(train_predictions.tolist()))
 
     test_predictions = model.predict_proba(X_test)
-    save_text(experiment_name, "train_predictions", str(test_predictions.tolist()))
+    save_text(experiment_name, "test_predictions", str(test_predictions.tolist()))
     # Save Feature Importance Gain
     plt.figure()
     lgb.plot_importance(
@@ -161,3 +162,110 @@ def save_results(
     save_image(experiment_name, "test_predictions_histogram")
     print(train_metrics)
     print(test_metrics)
+
+
+def save_to_mlflow(
+    model,
+    X_train: pd.DataFrame,
+    X_test: pd.DataFrame,
+    y_train: pd.DataFrame,
+    y_test: pd.DataFrame,
+    experiment_name: str,
+    experiment_metadata: Dict,
+):
+    mlflow.set_experiment(experiment_name)
+    with mlflow.start_run():
+        # Save Training Metrics
+        fig, ax = plt.subplots()
+        lgb.plot_metric(model, ax=ax)
+        mlflow.log_figure(fig, "training.png")
+        # Save Model
+        mlflow.sklearn.log_model(model, "model")
+        # Save Evaluation Metrics
+        train_predictions = model.predict_proba(X_train)
+        test_predictions = model.predict_proba(X_test)
+        train_metrics = compute_metrics(y_train, train_predictions)
+        test_metrics = compute_metrics(y_test, test_predictions)
+        metrics = {}
+        for key, value in train_metrics.items():
+            metrics[f"train_{key}"] = round(value, 4)
+        for key, value in test_metrics.items():
+            metrics[f"test_{key}"] = round(value, 4)
+        mlflow.log_metrics(metrics)
+        # Save Predictions
+        train_predictions = model.predict_proba(X_train)
+        test_predictions = model.predict_proba(X_test)
+        predictions = {
+            "train_predictions": str(train_predictions.tolist()),
+            "test_predictions": str(test_predictions.tolist()),
+        }
+        mlflow.log_dict(predictions, "predictions.json")
+        # Save Feature Importance Gain
+        fig, ax = plt.subplots()
+        lgb.plot_importance(
+            model, ax=ax, importance_type="gain", max_num_features=10, figsize=(10, 5)
+        )
+        mlflow.log_figure(fig, "feature_importance__gain.png")
+        # Save Feature Importance Slip
+        fig, ax = plt.subplots()
+        lgb.plot_importance(
+            model, ax=ax, importance_type="split", max_num_features=10, figsize=(10, 5)
+        )
+        mlflow.log_figure(fig, "feature_importance__split.png")
+        # Save Confusion Matrix
+        fig, ax = plt.subplots()
+        test_predictions_labels = [np.argmax(x) for x in test_predictions]
+        matrix = confusion_matrix(y_test, test_predictions_labels)
+        sns.heatmap(matrix, annot=True, fmt="d", cmap="Blues")
+        plt.xlabel("Predicted Labels")
+        plt.ylabel("True Labels")
+        mlflow.log_figure(fig, "confusion_matrix.png")
+        # Save Train Predictions Histograms
+        fig, ax = plt.subplots()
+        sns.histplot(train_predictions, bins=100)
+        mlflow.log_figure(fig, "train_predictions_histogram.png")
+        # Save Test Predictions Histograms
+        fig, ax = plt.subplots()
+        sns.histplot(test_predictions, bins=100)
+        mlflow.log_figure(fig, "test_predictions_histogram.png")
+        # Save Parameters
+        mlflow.log_params(model.get_params())
+        # Save Model Metadata
+        mlflow.log_dict(experiment_metadata, "metadata.json")
+
+
+def save_results(
+    model,
+    X_train: pd.DataFrame,
+    X_test: pd.DataFrame,
+    y_train: pd.DataFrame,
+    y_test: pd.DataFrame,
+    experiment_name: str,
+    experiment_metadata: Dict,
+    save_on_mlflow: bool = True,
+    save_locally: bool = False,
+):
+    if save_locally:
+        os.makedirs("experiments", exist_ok=True)
+        assert not os.path.exists(
+            get_experiment_folder(experiment_name)
+        ), "Experiment already exists locally"
+        save_results_locally(
+            model=model,
+            X_train=X_train,
+            X_test=X_test,
+            y_train=y_train,
+            y_test=y_test,
+            experiment_name=experiment_name,
+            experiment_metadata=experiment_metadata,
+        )
+    if save_on_mlflow:
+        save_to_mlflow(
+            model=model,
+            X_train=X_train,
+            X_test=X_test,
+            y_train=y_train,
+            y_test=y_test,
+            experiment_name=experiment_name,
+            experiment_metadata=experiment_metadata,
+        )
