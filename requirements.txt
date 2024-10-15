@@ -6,3 +6,5 @@ kagglehub
 scipy
 scikit-learn
 polars
+lightgbm
+mlflow
