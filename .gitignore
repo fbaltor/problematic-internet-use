@@ -6,6 +6,7 @@ data/
 experiments/
 mlflow_data/
 mlartifacts/
+mlruns/
 credentials.json
 # C extensions
 *.so
